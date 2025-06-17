@@ -6,6 +6,14 @@ import db
 # --- Configuration ---
 TRANSACTION_COST_PERCENT = 0.0075  # 0.75% transaction fee
 
+# Define lot sizes for different underlyings
+LOT_SIZES = {
+    "NIFTY": 75,
+    "BANKNIFTY": 25,
+    "FINNIFTY": 65,
+    "default": 1  # Default lot size for other symbols
+}
+
 # --- Custom Exceptions ---
 class InsufficientFundsError(Exception):
     """Raised when trying to buy without enough cash."""
@@ -24,11 +32,22 @@ class InvalidSymbolError(Exception):
 class Order:
     """Represents a buy or sell order."""
     symbol: str
-    quantity: int
-    price: float
+    quantity: int  # Now represents number of lots
+    price: float   # Per unit price
     order_type: str  # 'buy' or 'sell'
     user_id: str = None
     timestamp: datetime = None
+
+# Helper function to determine lot size based on symbol
+def get_lot_size(symbol):
+    """Determine the lot size for a given symbol."""
+    if symbol.startswith("NIFTY "):
+        return LOT_SIZES["NIFTY"]
+    elif symbol.startswith("BANKNIFTY "):
+        return LOT_SIZES["BANKNIFTY"]
+    elif symbol.startswith("FINNIFTY "):
+        return LOT_SIZES["FINNIFTY"]
+    return LOT_SIZES["default"]
 
 # --- Portfolio Management ---
 class Portfolio:
@@ -172,15 +191,21 @@ class TradingSystem:
         # Get the current portfolio
         portfolio = Portfolio.get_portfolio(order.user_id)
         
-        # Calculate costs
-        total_cost = order.quantity * order.price
+        # Get lot size for the symbol
+        lot_size = get_lot_size(order.symbol)
+        
+        # Calculate costs with lot size
+        units_per_lot = lot_size
+        total_units = order.quantity * units_per_lot
+        unit_price = order.price
+        total_cost = total_units * unit_price
         transaction_fee = total_cost * TRANSACTION_COST_PERCENT
         total_debit = total_cost + transaction_fee
 
         if total_debit > portfolio["cash"]:
             raise InsufficientFundsError(
-                f"Not enough cash to buy {order.quantity} of {order.symbol}. "
-                f"Required: ${total_debit:,.2f}, Available: ${portfolio['cash']:,.2f}"
+                f"Not enough cash to buy {order.quantity} lots ({total_units} units) of {order.symbol}. "
+                f"Required: ₹{total_debit:,.2f}, Available: ₹{portfolio['cash']:,.2f}"
             )
 
         # Update portfolio
@@ -199,9 +224,13 @@ class TradingSystem:
 
         return {
             "status": "success",
-            "message": f"Successfully bought {order.quantity} shares of {order.symbol} at ${order.price:,.2f} each.",
-            "total_cost": total_debit,
+            "message": f"Successfully bought {order.quantity} lots ({total_units} units) of {order.symbol} at ₹{order.price:,.2f} per unit.",
+            "lot_size": lot_size,
+            "total_units": total_units,
+            "unit_price": unit_price,
+            "total_cost": total_cost,
             "transaction_fee": transaction_fee,
+            "total_debit": total_debit,
             "trade_id": str(trade_record["_id"])
         }
 
@@ -213,14 +242,20 @@ class TradingSystem:
         holdings = portfolio.get("holdings", {})
         
         if order.symbol not in holdings or holdings[order.symbol] < order.quantity:
-            current_shares = holdings.get(order.symbol, 0)
+            current_lots = holdings.get(order.symbol, 0)
             raise InsufficientSharesError(
-                f"Not enough shares to sell. "
-                f"Trying to sell: {order.quantity}, Owned: {current_shares}"
+                f"Not enough lots to sell. "
+                f"Trying to sell: {order.quantity} lots, Owned: {current_lots} lots"
             )
 
-        # Calculate proceeds
-        total_value = order.quantity * order.price
+        # Get lot size for the symbol
+        lot_size = get_lot_size(order.symbol)
+        
+        # Calculate proceeds with lot size
+        units_per_lot = lot_size
+        total_units = order.quantity * units_per_lot
+        unit_price = order.price
+        total_value = total_units * unit_price
         transaction_fee = total_value * TRANSACTION_COST_PERCENT
         total_credit = total_value - transaction_fee
 
@@ -240,9 +275,13 @@ class TradingSystem:
 
         return {
             "status": "success",
-            "message": f"Successfully sold {order.quantity} shares of {order.symbol} at ${order.price:,.2f} each.",
-            "total_credit": total_credit,
+            "message": f"Successfully sold {order.quantity} lots ({total_units} units) of {order.symbol} at ₹{order.price:,.2f} per unit.",
+            "lot_size": lot_size,
+            "total_units": total_units,
+            "unit_price": unit_price,
+            "total_value": total_value,
             "transaction_fee": transaction_fee,
+            "total_credit": total_credit,
             "trade_id": str(trade_record["_id"])
         }
 

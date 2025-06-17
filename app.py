@@ -223,12 +223,16 @@ def get_portfolio(user_id):
             # Try to get current price for the holding
             option_data = logic.OptionChain.get_option_by_symbol(symbol)
             price = option_data.get('lastPrice', 0)
-            market_value = quantity * price
+            lot_size = logic.get_lot_size(symbol)
+            total_units = quantity * lot_size
+            market_value = total_units * price
             total_holdings_value += market_value
             
             holdings_list.append({
                 'symbol': symbol,
                 'quantity': quantity,
+                'lot_size': lot_size,
+                'total_units': total_units,
                 'price': price,
                 'market_value': market_value
             })
@@ -237,6 +241,7 @@ def get_portfolio(user_id):
             holdings_list.append({
                 'symbol': symbol,
                 'quantity': quantity,
+                'lot_size': logic.get_lot_size(symbol),
                 'price': 'Unknown',
                 'market_value': 0,
                 'error': str(e)
