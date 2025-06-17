@@ -10,6 +10,8 @@ from datetime import datetime
 import pymongo
 from pymongo.errors import DuplicateKeyError
 from functools import wraps
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
 
 import db
 import logic
@@ -98,26 +100,44 @@ def fetch_option_chain_data():
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
+        auth_header = request.headers.get('Authorization')
         
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
+        if not auth_header:
+            return jsonify({'message': 'Authorization header is missing!'}), 401
         
-        # In a real app, verify the token (JWT, OAuth, etc.)
-        # For this example, we'll just check if the token corresponds to a user
-        try:
-            # Extract user_id from token (simplified)
-            user_id = token
-            # Check if user exists
-            user = db.users_collection.find_one({"_id": pymongo.ObjectId(user_id)})
-            if not user:
-                return jsonify({'message': 'Invalid token!'}), 401
+        # Check if token has Bearer prefix and remove it
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]  # Remove 'Bearer ' prefix
+        else:
+            token = auth_header
             
-        except:
-            return jsonify({'message': 'Invalid token!'}), 401
+        print(f"Processing authentication with token: {token}")
         
-        return f(user_id, *args, **kwargs)
-    
+        try:
+            # Validate token format as MongoDB ObjectId
+            if not ObjectId.is_valid(token):
+                print(f"Invalid ObjectId format: {token}")
+                return jsonify({'message': 'Invalid token format!'}), 401
+                
+            user_id = ObjectId(token)
+            
+            # Check if user exists
+            user = db.users_collection.find_one({"_id": user_id})
+            if not user:
+                print(f"User not found for token: {token}")
+                return jsonify({'message': 'User not found!'}), 401
+            
+            # Log successful authentication
+            print(f"Authentication successful for user: {user['username']}")
+            return f(str(user_id), *args, **kwargs)
+            
+        except InvalidId as e:
+            print(f"Invalid ObjectId format error: {e}")
+            return jsonify({'message': 'Invalid token format!'}), 401
+        except Exception as e:
+            print(f"Authentication error: {str(e)}")
+            return jsonify({'message': f'Authentication error: {str(e)}'}), 401
+        
     return decorated
 
 # Routes
