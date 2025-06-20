@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Portfolio, MarketData } from '../types';
-import { TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw, X } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exitingPosition, setExitingPosition] = useState<string | null>(null);
+  const [tradeMessage, setTradeMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchData = async () => {
     try {
@@ -38,6 +40,47 @@ const Dashboard: React.FC = () => {
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-IN').format(num);
+  };
+
+  const exitPosition = async (symbol: string, quantity: number, price: number, positionType: string) => {
+    try {
+      setExitingPosition(symbol);
+      setTradeMessage(null);
+      
+      // For long positions we need to sell, for short positions we need to buy
+      const orderType = positionType === 'long' ? 'sell' : 'buy';
+      
+      // We use the absolute value of quantity because short positions have negative quantities in display
+      const absoluteQuantity = Math.abs(quantity);
+      
+      const result = await apiService.executeTrade({
+        symbol,
+        quantity: absoluteQuantity,
+        price, // Use current price for exit
+        order_type: orderType,
+      });
+      
+      if (result.status === 'success') {
+        setTradeMessage({
+          type: 'success',
+          message: `Successfully exited ${absoluteQuantity} lots of ${symbol}`
+        });
+        // Refresh data to update portfolio
+        fetchData();
+      } else {
+        setTradeMessage({
+          type: 'error',
+          message: result.message || 'Failed to exit position'
+        });
+      }
+    } catch (err) {
+      setTradeMessage({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to exit position'
+      });
+    } finally {
+      setExitingPosition(null);
+    }
   };
 
   if (loading) {
@@ -142,6 +185,16 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {tradeMessage && (
+        <div className={`p-4 rounded-lg ${
+          tradeMessage.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
+            : 'bg-red-50 border border-red-200 text-red-700'
+        }`}>
+          {tradeMessage.message}
+        </div>
+      )}
+
       {/* Holdings */}
       {portfolio && portfolio.holdings.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -162,7 +215,13 @@ const Dashboard: React.FC = () => {
                     Avg Price
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    LTP
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Market Value
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Action
                   </th>
                 </tr>
               </thead>
@@ -176,10 +235,49 @@ const Dashboard: React.FC = () => {
                       {holding.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(holding.price)}
+                      {typeof holding.price === 'number' ? formatCurrency(holding.price) : holding.price}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {/* For short positions with entry_price, current_price represents LTP */}
+                      {holding.position_type === 'short' && holding.current_price ? 
+                        formatCurrency(holding.current_price) : 
+                        (typeof holding.price === 'number' ? formatCurrency(holding.price) : 'N/A')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                      {formatCurrency(holding.market_value)}
+                      {typeof holding.market_value === 'number' ? formatCurrency(holding.market_value) : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button
+                        onClick={() => {
+                          // Determine the current price to use for the exit order
+                          const currentPrice = holding.position_type === 'short' && holding.current_price
+                            ? holding.current_price
+                            : (typeof holding.price === 'number' ? holding.price : 0);
+                            
+                          exitPosition(
+                            holding.symbol, 
+                            holding.quantity, 
+                            currentPrice,
+                            holding.position_type || 'long'
+                          );
+                        }}
+                        disabled={exitingPosition === holding.symbol}
+                        className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors ${
+                          exitingPosition === holding.symbol ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {exitingPosition === holding.symbol ? (
+                          <>
+                            <RefreshCw className="animate-spin -ml-0.5 mr-1 h-3 w-3" />
+                            Exiting...
+                          </>
+                        ) : (
+                          <>
+                            <X className="-ml-0.5 mr-1 h-3 w-3" />
+                            Exit
+                          </>
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}

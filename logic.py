@@ -4,7 +4,7 @@ from datetime import datetime
 import db
 
 # --- Configuration ---
-TRANSACTION_COST_PERCENT = 0.0075  # 0.75% transaction fee
+TRANSACTION_COST_FIXED = 40  # Fixed transaction fee of ₹40 per trade (replaces percentage-based fee)
 SELL_MARGIN_PER_LOT = 200000  # 2 lakhs margin per lot for sell orders
 
 # Define lot sizes for different underlyings
@@ -188,7 +188,7 @@ class TradingSystem:
         total_units = order.quantity * units_per_lot
         unit_price = order.price
         total_cost = total_units * unit_price
-        transaction_fee = total_cost * TRANSACTION_COST_PERCENT
+        transaction_fee = TRANSACTION_COST_FIXED  # Use fixed fee instead of percentage
         total_debit = total_cost + transaction_fee
 
         if total_debit > portfolio["cash"]:
@@ -251,11 +251,12 @@ class TradingSystem:
         total_units = cover_quantity * units_per_lot
         unit_price = order.price
         total_cost = total_units * unit_price
-        transaction_fee = total_cost * TRANSACTION_COST_PERCENT
+        transaction_fee = TRANSACTION_COST_FIXED  # Use fixed fee
         total_debit = total_cost + transaction_fee
         
         # For short positions, profit is realized when the price goes down
-        # Profit = short price - cover price
+        # Profit = (short price - cover price) * total_units - transaction fee
+        # Fix: Only subtract transaction fee, not applying it twice
         realized_profit = (short_price - unit_price) * total_units - transaction_fee
         
         # Check if user has enough cash
@@ -406,7 +407,7 @@ class TradingSystem:
         total_units = order.quantity * units_per_lot
         unit_price = order.price
         total_value = total_units * unit_price
-        transaction_fee = total_value * TRANSACTION_COST_PERCENT
+        transaction_fee = TRANSACTION_COST_FIXED  # Use fixed fee
         total_credit = total_value - transaction_fee
         
         # Update portfolio
@@ -466,6 +467,8 @@ class TradingSystem:
         units_per_lot = lot_size
         total_units = order.quantity * units_per_lot
         unit_price = order.price
+        
+        # Note: Transaction fee (TRANSACTION_COST_FIXED) will be applied when position is closed
         
         # Update portfolio - reserve margin and update short positions
         Portfolio.update_cash(order.user_id, -required_margin)  # Reserve margin

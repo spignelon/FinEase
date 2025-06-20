@@ -11,8 +11,8 @@ MARKET_STATUS_URL = "https://www.nseindia.com/api/marketStatus"
 HEADERS = {
     'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
     'accept': '*/*',
-    'accept-language': 'en-US,en;q=0.8',
-    'referer': 'https://www.nseindia.com/market-data/live-equity-market?symbol=NIFTY%2050',
+    'accept-language': 'en-US,en;q=0.6',
+    'referer': 'https://www.nseindia.com/option-chain',
     'sec-ch-ua': '"Brave";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Linux"',
@@ -23,15 +23,15 @@ HEADERS = {
     'priority': 'u=1, i'
 }
 
-# Cookies required for NSE API access
+# Cookies required for NSE API access (updated)
 COOKIES = {
+    'nsit': '4c4N_xWu1vOH6P8quwF1Jljk',
+    'nseappid': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcGkubnNlIiwiYXVkIjoiYXBpLm5zZSIsImlhdCI6MTc1MDQxMDkzNCwiZXhwIjoxNzUwNDE4MTM0fQ.7a_ddl9LoFIt-LguXneLDtLYFDiZufaO7zgF18pw7r4',
     'AKA_A2': 'A',
-    '_abck': '9E730CD72DE80708B92D66652B40B93D~0~YAAQFvEBF2KXEXuXAQAAuhcqjA70k/FzuLBoE//ovg5+TrOkR13c8pUi7PoI3MCsJ/6tzqo2IUB9AHoHE7frQ5DSfRWEXmdal4wz8Z7BXEm94QP+n8duvpkg54+9EntGN/Uy33C8/jEeuP5jNQavg7Fuk1p+prRPMAJ6htIFJ3JvihPkZtYRGTxsYiy5TVHq02XcOqS/4fdyHo6YB5IT8mwVa4p1utzXNTy1dpFNdMEjjOKqdMmzISJfh7HgblgA3VVi5G854AIFRctYy/LIzBvrBYuTNN6K5DuB0WwYVVjIMyCqvbUmB0z/+mHToG5nF0D5w35UJuxXga0f8n04ws0EZbcfDeEEOoED2jkj7iK8z/wQUAh4fDUbERNG/H/RulEuETqjKmUmG3qH0tQzdGwNVha+Tu4JT9EmORCPI6PyHJr6U6nBrd/v71+iW4E7Sc+CMdVte/0OGzuwoSAR4ZnK3egrvAY4qCAKhgGbgdvbaTUoXT6Q+chMR+mY1fAmR5H+XTMsOp4k4Jmst6C0j5mi7ggGaRxVxnPQQ8NgSEGI8wGPc7LWD/ENx/L2R2zXOB2Glj2dBCaG7lPAcmi5gfJtuRwbLQgoaZAh+xO4WCWm+U3Uy1f74joQXnW/Sgo=~-1~-1~-1',
-    'ak_bmsc': '2847A028E8134C2A2566D0ED0F317ADA~000000000000000000000000000000~YAAQFvEBF8GXEXuXAQAAoxoqjBwcKM422XzZeLNgSqZ1QMEdGkR9sDgSnofvAxqPLwKp3ICYlAjzo+tn/gR+y4umDnOL3JlplxB2RruIqvDqVGm8HyWdrDya3Nmqq2ho7Crmv9JHJia9B20eaa3i9XBvD6o9M5DjkvNItIexqdFZbdJ8kbw1R3upDkmJOTxY3A1blqnQvhiwVvDiulM+LBFHss2FrL4o3oq/DOinhrUuYFT5LoRSqKuiVVXLPrP40O430YaRmRhsKPTHzaDBnLhSHf+4kKSHNKkzKThsZmDMKziUqwd3TtJqzOe3PCJxASNgOH1Kt6Kpa56tN/r+0a+8CrDLKepV/URhxNuyxuOsRv6No7CexkY4+nZX3haQCGPLX+0TfmOMudg/iC2RxjjkEo3yDSzrU2hJ347TE8M0thhQtjdWJiYRR9nqntZw4rEOAM0SLcX1GKy10zs=',
-    'nsit': 'DhQwnJdRNkxbBaKz3A_2UrcD',
-    'nseappid': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcGkubnNlIiwiYXVkIjoiYXBpLm5zZSIsImlhdCI6MTc1MDQwNDEwMiwiZXhwIjoxNzUwNDExMzAyfQ.TxraKUh2fIyvFGwpWHZN_FLaav8naMVp1SuJAK8luRM',
-    'bm_sz': '9B9F38CC7DC7C000CB293B382E39A856~YAAQJPEBF6AlUXmXAQAAzPk2jByeaN+oe+A0C7l+RI/rTnWkKJBBzy08uskZZLQzkBXsbGL81oMHr75t7kjceQmoJwvyQ4YmYSmi8HKlU3DsAIvZd1y0+MC8/sIVCtxM/V9uvQOig79fGhkc7qUBkCFOcaQJl8YE5ap5d4uvbmO1ABojStkR/JVsmW+lNti2gYfW2XNlgnL811Rd/Gdls8p+m33Y/Gm2EPZr4QgOkcMcwvOhD/DjIHSW8TQlICqFIBfL9d8lOPOSMb3lBTvcfPu3iqtL/0eNB8XaHZkRuUUZ/iY6hPjQFJzOMjivv84YIvp9seQHR/zahPW6IwieOaUrkbJ1jfLkYwsVuvOdA0PggJZNHnhkjHXWV6T9RvqKfeKBEkzpJPWF4sa4hTb71qzdQacy9Q==~4272178~3229251',
-    'bm_sv': 'C9656991B641012D27C1CCEE99E37E6B~YAAQJPEBFw0pUXmXAQAACRQ3jByCNZsBkaO5Lm3PAARWsNh4bTWaen2TzXiqypnMc2G1gBVR9DrrxkBeZpQQjpjfLF13gA5WwiBuax+iKS73P1Qg/nChI4uzg6zV+B7N4AAMTydqX7N35EUG2aQBsb7itxcDMpkLRGIq1vQzpw4gYKPQQtNeyfCMY7KQiKfHhmUX81apvz6TZcINCfFuKcDeoKfx2iwNSVhU3IK4/xm2HuBDISQlgoOGRG0GAFdjBSI=~1',
+    'bm_sz': 'B775D425D53D73092BC6CBF5D456FB40~YAAQFvEBF8OoJ3uXAQAAmDifjBwzjMg8Z58HjmaX6J3uuGzylYriNnuHUEe/YHo0X16EZUewfVDtUsp8IXWHLhSdhly1+VitwxZeeW+ptjV2wfcy1Lcw/Zxb9nYdmbIXasaB9SX6J18MdeRcpF8VZ4h95MkLVaBWY9N7PdVi8jIRv8EGvNNsWi6kUAQBdCOs9zR9af3DRSeNSMcHqcTgLRSur30d1BjNG8XxKiF+i83n6IJhuNaT326Ht84oA5BZlOA+Dzhi6jU69frUT+nJZxAR2alGTCJBw5L6lTgfcCWT5MoqVV1qPRPfDRT4xS0SLhK3rv6islMgijXkRPPGIVmsGQonMnz8irAMPjfJtqqhefaG22tqqzNuB8cSJUL8hiEFdxgyd0GPy/vTQQ==~3162419~4273463',
+    'ak_bmsc': 'BCD17C4049260D9126AD79C338B50DC3~000000000000000000000000000000~YAAQFvEBF/+pJ3uXAQAAcTyfjBx/l6Vxt82wh9q0Ryl79jQ0DDJ/0eqb5KxwcfpnoFr+mrV0Hq2KwCQB+SjnBFUZrjHGGhLaDwk4by1YDc0atZGz8GkHgbTl0Tn/afLy5CkYCN3rglX0gzjO31zJatLQwQlS2aIN1Dutmn5thF0X5c+074gYzX4Eu6DEX7IGC7vwIMGN2B3rzgux+Tday83ArPoWnUWdyhDK6WmsDjGqmp4Jw0B/ymhhSZXRbHqJ2D47SLdPEA8OwPusT4PV6b2t47inJ07VsjV0vJ3mADF5JgMLieR0JK4fuVz2PBnV/68sm2SMU4hagmMzW3Qv8SDQxdEapDzUx50W4y6maGA1gRcFBgwLn7iS8o4dVRQOOe+WsbDnTO8M5ScYnlgNVJDK6oncLX5B3gbIQ28ySNmTdNRI8chf/bOfWpj5q0IrL//WeI1LnvC2PZ2VFqs=',
+    '_abck': 'D27189CFE81BD09F29943030E64D7B5D~0~YAAQFvEBF8usJ3uXAQAAv0WfjA47AN8RgqJO0Pw0Jbm12x6Gu6qfkYuqoyAkgPIwcal4HAONwW0WygZLfLaLB/FAVUk9XjPJI27MMn7nEhrtZ9Xx9ZmUZ+6BdU5tT7w0agiHQPHOm3i436VgdqFatr5tBNMEvceyoctKA4wAN6bVcNtc7A3Nc+gbX97lfWc1UX90v5MLWGA6Nq61WydcAsSzJCjevN1lu+uCE/VtAJYeNfv7GNgm2GT2DIm7lO3jIRcsuXj2HNy4bKifaCckhZDlq0UcHm5cwoLXTbDSPBnNuzU6LE3FG1HQQvvi1TDNOs/8P22eKlgNOAcjCj4Uhi4eyarSXAtaUATxSrkcOjhi+ShSuGnKiXZJuGdGY0vAtZs68LXXPRatxN7fgX8tk5vXP/VJTgSkd2YdA4ULQwe6sMwbN11wbc1N2genn0mXyFUvHarsayOKk6qAChvqu9O6yrLtgAZSqiV9xS2QM5iA/hEJ5mQHWePEzArsX7y8S0hQoiIteOSlPdTYlgqWHBxqQp27Wn/Jm+2kDgHeMOEtF41RDeZfmBzVtaJtisXZ2Z2uT2plJxbUShguIq8CV6VNq1ZzmvPe8nTcy7ggKp1CVccwM0S24e+CQEenRg==~-1~||0||~-1',
+    'bm_sv': 'EA0F0DA7EA4C25755447E5249D212042~YAAQFvEBF+StJ3uXAQAAw0ufjByKHq2UWW9XuGDur7D/iCOzRmPVASclfMbnELYt7g8L+/kq6MYhP1Zsq6DtYt8npgnNPn2y6Kn7gAr1+koFhK2k8Cr1bOhcC77+7B+xwSlv644NZKzipE8/3TGW1AMrFhrzVVLuIvbYFPbjGhpvIHUgxblfxYh0czZUxg12yg/PqjrQDtsIrPzQPzpdHTc06YmYoMY+PMao9+pupkqyzY+lunlB9R0BgYuW2dmVPDw=~1'
 }
 
 # Create a session for reusing connections
@@ -72,11 +72,9 @@ def extract_nifty_data(market_data):
     if not market_data or 'marketState' not in market_data:
         return None
     
-    nifty_data = None
-    
     for market_state in market_data['marketState']:
         if market_state.get('index') == 'NIFTY 50':
-            nifty_data = {
+            return {
                 'index': market_state.get('index'),
                 'last': market_state.get('last'),
                 'change': market_state.get('variation'),
@@ -84,9 +82,7 @@ def extract_nifty_data(market_data):
                 'tradeDate': market_state.get('tradeDate'),
                 'market_status': market_state.get('marketStatus')
             }
-            break
-    
-    return nifty_data
+    return None
 
 def update_market_data():
     """
