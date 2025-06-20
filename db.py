@@ -31,6 +31,7 @@ portfolios_collection = db["portfolios"] if db is not None else None
 option_chain_collection = db["option_chain"] if db is not None else None
 trades_collection = db["trades"] if db is not None else None
 market_data_collection = db["market_data"] if db is not None else None
+master_collection = db["master"] if db is not None else None  # Added master collection
 
 # Initialize indexes
 def setup_indexes():
@@ -50,6 +51,11 @@ def setup_indexes():
         trades_collection.create_index([("timestamp", pymongo.DESCENDING)])
         
         portfolios_collection.create_index([("user_id", pymongo.ASCENDING)], unique=True)
+        
+        # Add index for the master collection
+        master_collection.create_index([("fetched_date", pymongo.DESCENDING)])
+        master_collection.create_index([("symbol", pymongo.ASCENDING)])
+        
         print("MongoDB indexes created successfully")
     except Exception as e:
         print(f"Error creating indexes: {e}")
@@ -252,6 +258,88 @@ def get_latest_market_data():
         sort=[("timestamp", pymongo.DESCENDING)]
     )
 
+# Master data operations
+def is_master_data_current():
+    """
+    Check if the master data in the database is from today.
+    
+    Returns:
+        bool: True if master data is from today, False otherwise
+    """
+    if client is None:
+        return False
+        
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Find any record from today
+    latest_record = master_collection.find_one(
+        {"fetched_date": {"$gte": today}},
+        sort=[("fetched_date", pymongo.DESCENDING)]
+    )
+    
+    return latest_record is not None
+
+def clear_master_collection():
+    """
+    Clear all data from the master collection.
+    
+    Returns:
+        bool: True if successful, False if failed
+    """
+    if client is None:
+        return False
+    
+    try:
+        master_collection.delete_many({})
+        return True
+    except Exception as e:
+        print(f"Error clearing master collection: {e}")
+        return False
+
+def save_master_data(master_data):
+    """
+    Save the fetched master data to the database.
+    
+    Args:
+        master_data (list): List of dictionaries containing master data
+    
+    Returns:
+        bool: True if successful, False if failed
+    """
+    if client is None or not master_data:
+        return False
+    
+    try:
+        # Add timestamp to each record
+        fetched_date = datetime.now()
+        for item in master_data:
+            item["fetched_date"] = fetched_date
+            
+        # Insert all records
+        master_collection.insert_many(master_data)
+        return True
+    except Exception as e:
+        print(f"Error saving master data: {e}")
+        return False
+
+def get_master_data(symbol=None):
+    """
+    Get master data from the database, optionally filtered by symbol.
+    
+    Args:
+        symbol (str, optional): Filter by symbol name
+    
+    Returns:
+        list: List of master data records
+    """
+    if client is None:
+        return []
+    
+    query = {}
+    if symbol:
+        query["symbol"] = symbol
+    
+    return list(master_collection.find(query, {'_id': 0}))
+
 # Initialize database with indexes
-setup_indexes()
 setup_indexes()

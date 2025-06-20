@@ -15,6 +15,7 @@ from bson.errors import InvalidId
 
 import db
 import logic
+from master import NiftyDataProcessor  # Import NiftyDataProcessor from master.py
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_for_development')
@@ -139,6 +140,48 @@ def token_required(f):
             return jsonify({'message': f'Authentication error: {str(e)}'}), 401
         
     return decorated
+
+# Function to fetch and update master data
+def update_master_data():
+    """
+    Check if master data needs updating and fetch new data if required.
+    
+    Returns:
+        bool: True if update was performed, False if not needed
+    """
+    print("Checking if master data needs to be updated...")
+    
+    # Check if the master data is already current (from today)
+    if db.is_master_data_current():
+        print("Master data is already current. Skipping update.")
+        return False
+    
+    print("Master data is outdated or missing. Fetching new data...")
+    
+    # Clear existing master data
+    db.clear_master_collection()
+    
+    # Use NiftyDataProcessor to fetch new master data
+    data_url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+    processor = NiftyDataProcessor(data_url)
+    
+    if processor.fetch_data():
+        filtered_results = processor.get_filtered_nifty_data()
+        
+        if filtered_results:
+            # Save the filtered results to the master collection
+            success = db.save_master_data(filtered_results)
+            if success:
+                print(f"Master data updated successfully with {len(filtered_results)} records")
+            else:
+                print("Failed to save master data to database")
+            return success
+        else:
+            print("No filtered results found in master data")
+            return False
+    else:
+        print("Failed to fetch master data")
+        return False
 
 # Routes
 @app.route('/api/register', methods=['POST'])
@@ -380,21 +423,34 @@ def internal_error(error):
 
 # Replace the deprecated before_first_request with proper initialization
 def start_background_tasks():
+    # First, update master data if needed
+    update_master_data()
+    
+    # Then start the regular data fetching thread
     data_thread = threading.Thread(target=fetch_option_chain_data)
     data_thread.daemon = True
     data_thread.start()
     return data_thread
 
+# Add a new API endpoint to manually trigger master data update (useful for testing)
+@app.route('/api/admin/update_master_data', methods=['POST'])
+@token_required
+def admin_update_master_data(user_id):
+    # In a real app, you'd check if the user has admin privileges
+    result = update_master_data()
+    return jsonify({
+        'success': result,
+        'message': 'Master data updated successfully' if result else 'No update needed or update failed'
+    })
+
 if __name__ == '__main__':
     try:
-        # Create a thread for fetching data - no need for duplicate initialization
+        # Create a thread for fetching data
         data_thread = start_background_tasks()
         
         # Run the Flask app
         app.run(debug=True, host='0.0.0.0', port=5000)
     finally:
         # Set the flag to stop the thread
-        running = False
-        print("Shutting down background tasks...")
         running = False
         print("Shutting down background tasks...")

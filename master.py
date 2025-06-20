@@ -19,7 +19,8 @@ class NiftyDataProcessor:
         self.url = url
         self.raw_data = None
         self.ist_timezone = pytz.timezone('Asia/Kolkata')
-        self.columns_to_extract = ["symbol", "name", "expiry", "lotsize", "exch_seg"]
+        # Added "token" to the list of columns to extract
+        self.columns_to_extract = ["token", "symbol", "name", "expiry", "lotsize", "exch_seg"]
 
     def fetch_data(self):
         """
@@ -132,4 +133,3 @@ if __name__ == "__main__":
         print(json_output)
     else:
         print("\nFailed to process NIFTY data.")
-
