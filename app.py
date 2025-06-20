@@ -449,7 +449,7 @@ if __name__ == '__main__':
         data_thread = start_background_tasks()
         
         # Run the Flask app
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        app.run(debug=True, host='0.0.0.0', port=5001)
     finally:
         # Set the flag to stop the thread
         running = False
