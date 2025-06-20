@@ -275,10 +275,11 @@ def get_portfolio(user_id):
                 
                 short_positions_list.append({
                     'symbol': symbol,
-                    'quantity': quantity,
+                    'quantity': -quantity,  # Display as negative to indicate short position
                     'lot_size': lot_size,
-                    'total_units': total_units,
+                    'total_units': -total_units,  # Also make total units negative
                     'entry_price': entry_price,
+                    'price': entry_price,  # Add price field with entry price
                     'current_price': current_price,
                     'pnl': pnl,
                     'margin_frozen': margin_frozen,
@@ -292,9 +293,10 @@ def get_portfolio(user_id):
                 
                 short_positions_list.append({
                     'symbol': symbol,
-                    'quantity': quantity,
+                    'quantity': -quantity,  # Display as negative to indicate short position
                     'lot_size': logic.get_lot_size(symbol),
                     'entry_price': entry_price,
+                    'price': entry_price,  # Add price field with entry price
                     'current_price': 'Unknown',
                     'pnl': 0,
                     'margin_frozen': margin_frozen,
@@ -308,9 +310,10 @@ def get_portfolio(user_id):
             
             short_positions_list.append({
                 'symbol': symbol,
-                'quantity': quantity,
+                'quantity': -quantity,  # Display as negative to indicate short position
                 'lot_size': logic.get_lot_size(symbol),
                 'entry_price': entry_price,
+                'price': entry_price,  # Add price field with entry price
                 'current_price': 'Unknown',
                 'pnl': 0,
                 'margin_frozen': margin_frozen,
@@ -423,7 +426,7 @@ def search_options():
     return jsonify({
         'options': results,
         'count': len(results)
-    }), 200
+    }, 200)
 
 @app.route('/api/trade', methods=['POST'])
 @token_required
