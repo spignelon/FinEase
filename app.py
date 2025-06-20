@@ -423,10 +423,11 @@ def search_options():
             if len(results) >= 20:
                 break
     
+    # Fix: Return jsonify result and status code separately
     return jsonify({
         'options': results,
         'count': len(results)
-    }, 200)
+    }), 200
 
 @app.route('/api/trade', methods=['POST'])
 @token_required
