@@ -192,7 +192,7 @@ def get_portfolio(user_id):
             if state.get('index') == 'NIFTY 50':
                 nifty_price = state.get('last', 0)
     
-    # Calculate total value using LTP from MongoDB
+    # Calculate total value of long positions (holdings)
     holdings_list = []
     total_holdings_value = 0
     
@@ -214,7 +214,8 @@ def get_portfolio(user_id):
                     'lot_size': lot_size,
                     'total_units': total_units,
                     'price': price,
-                    'market_value': market_value
+                    'market_value': market_value,
+                    'position_type': 'long'
                 })
             else:
                 # If no LTP available
@@ -224,6 +225,7 @@ def get_portfolio(user_id):
                     'lot_size': logic.get_lot_size(symbol),
                     'price': 'Unknown',
                     'market_value': 0,
+                    'position_type': 'long',
                     'error': 'No LTP data available'
                 })
         except Exception as e:
@@ -234,15 +236,115 @@ def get_portfolio(user_id):
                 'lot_size': logic.get_lot_size(symbol),
                 'price': 'Unknown',
                 'market_value': 0,
+                'position_type': 'long',
                 'error': str(e)
             })
     
+    # Calculate value and PnL for short positions
+    short_positions = portfolio.get('short_positions', {})
+    short_positions_list = []
+    total_short_value = 0
+    total_short_pnl = 0
+    total_margin_frozen = 0
+    
+    for symbol, position in short_positions.items():
+        try:
+            entry_price = position.get('price', 0)
+            quantity = position.get('quantity', 0)
+            
+            # Get current price
+            option_data = db.get_option_with_ltp(symbol)
+            
+            if option_data and "lastPrice" in option_data and option_data["lastPrice"] is not None:
+                current_price = option_data["lastPrice"]
+                lot_size = logic.get_lot_size(symbol)
+                total_units = quantity * lot_size
+                
+                # Calculate frozen margin (2 lakhs per lot)
+                margin_frozen = logic.SELL_MARGIN_PER_LOT * quantity
+                total_margin_frozen += margin_frozen
+                
+                # For short positions, PnL = (entry_price - current_price) * total_units
+                # If entry_price > current_price, it's a profit; if entry_price < current_price, it's a loss
+                pnl = (entry_price - current_price) * total_units
+                total_short_pnl += pnl
+                
+                # Market value is the value at the current price
+                market_value = total_units * current_price
+                total_short_value += market_value
+                
+                short_positions_list.append({
+                    'symbol': symbol,
+                    'quantity': quantity,
+                    'lot_size': lot_size,
+                    'total_units': total_units,
+                    'entry_price': entry_price,
+                    'current_price': current_price,
+                    'pnl': pnl,
+                    'margin_frozen': margin_frozen,
+                    'market_value': market_value,
+                    'position_type': 'short'
+                })
+            else:
+                # If no LTP available
+                margin_frozen = logic.SELL_MARGIN_PER_LOT * quantity
+                total_margin_frozen += margin_frozen
+                
+                short_positions_list.append({
+                    'symbol': symbol,
+                    'quantity': quantity,
+                    'lot_size': logic.get_lot_size(symbol),
+                    'entry_price': entry_price,
+                    'current_price': 'Unknown',
+                    'pnl': 0,
+                    'margin_frozen': margin_frozen,
+                    'market_value': 0,
+                    'position_type': 'short',
+                    'error': 'No LTP data available'
+                })
+        except Exception as e:
+            margin_frozen = logic.SELL_MARGIN_PER_LOT * quantity
+            total_margin_frozen += margin_frozen
+            
+            short_positions_list.append({
+                'symbol': symbol,
+                'quantity': quantity,
+                'lot_size': logic.get_lot_size(symbol),
+                'entry_price': entry_price,
+                'current_price': 'Unknown',
+                'pnl': 0,
+                'margin_frozen': margin_frozen,
+                'market_value': 0,
+                'position_type': 'short',
+                'error': str(e)
+            })
+    
+    # Combine all positions for display
+    all_positions = holdings_list + short_positions_list
+    
+    # Calculate the adjusted cash and portfolio value correctly
+    # When a short position is created, cash decreases by the margin amount
+    # The correct way to calculate total portfolio value is to add the margin back
+    # since it's not actually "spent" - just frozen as collateral
+    
+    adjusted_portfolio_value = portfolio['cash'] + total_holdings_value + total_short_pnl + total_margin_frozen
+    
     return jsonify({
         'cash': portfolio['cash'],
-        'holdings': holdings_list,
-        'total_holdings_value': total_holdings_value,
-        'total_portfolio_value': portfolio['cash'] + total_holdings_value,
-        'nifty_price': nifty_price
+        'available_cash': portfolio['cash'] - total_margin_frozen,
+        'margin_frozen': total_margin_frozen,
+        'holdings': all_positions,
+        'long_holdings_value': total_holdings_value,
+        'short_positions_value': total_short_value,
+        'short_positions_pnl': total_short_pnl,
+        'total_holdings_value': total_holdings_value + total_short_pnl,
+        # Add margin frozen to portfolio value to offset the reduction in cash
+        'total_portfolio_value': adjusted_portfolio_value,
+        'nifty_price': nifty_price,
+        # Add this field to make it easier for the frontend to understand
+        'effective_portfolio_value': portfolio['cash'] + total_holdings_value + total_short_pnl,
+        # Include initial portfolio value for reference
+        'initial_portfolio_value': 1000000  # 10 lakhs starting cash
     }), 200
 
 @app.route('/api/option_chain', methods=['GET'])

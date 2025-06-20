@@ -92,6 +92,7 @@ def create_portfolio(user_id, initial_cash=1000000):
         "user_id": user_id,
         "cash": initial_cash,
         "holdings": {},
+        "short_positions": {},  # Add short positions tracking
         "created_at": datetime.now(),
         "updated_at": datetime.now()
     }
@@ -134,6 +135,62 @@ def update_portfolio_holdings(user_id, symbol, quantity_change):
         {
             "$set": {
                 "holdings": holdings,
+                "updated_at": datetime.now()
+            }
+        }
+    )
+
+def update_portfolio_short_positions(user_id, symbol, quantity, price=None):
+    """
+    Updates the short positions in a user's portfolio.
+    
+    Args:
+        user_id: The user's ID
+        symbol: The option symbol
+        quantity: The quantity to add (positive) or remove (negative)
+        price: The price for new short positions (only needed for new positions)
+    """
+    if client is None:
+        return
+        
+    portfolio = portfolios_collection.find_one({"user_id": user_id})
+    
+    # Get current short positions
+    short_positions = portfolio.get("short_positions", {})
+    
+    # Check if this symbol already exists in short positions
+    current_position = short_positions.get(symbol, {"quantity": 0, "price": 0})
+    current_quantity = current_position.get("quantity", 0)
+    current_price = current_position.get("price", 0)
+    
+    # Calculate new quantity
+    new_quantity = current_quantity + quantity
+    
+    # Update short positions
+    if new_quantity <= 0:
+        # Remove the position if fully covered
+        if symbol in short_positions:
+            short_positions.pop(symbol)
+    else:
+        # If this is a new position, use the provided price
+        if current_quantity == 0 and price is not None:
+            short_positions[symbol] = {
+                "quantity": new_quantity,
+                "price": price
+            }
+        else:
+            # Keep the same average price if just reducing
+            short_positions[symbol] = {
+                "quantity": new_quantity,
+                "price": current_price
+            }
+    
+    # Update in database
+    portfolios_collection.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "short_positions": short_positions,
                 "updated_at": datetime.now()
             }
         }
