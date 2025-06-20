@@ -254,37 +254,36 @@ class TradingSystem:
         transaction_fee = TRANSACTION_COST_FIXED  # Use fixed fee
         total_debit = total_cost + transaction_fee
         
-        # For short positions, profit is realized when the price goes down
-        # Profit = (short price - cover price) * total_units - transaction fee
-        # Fix: Only subtract transaction fee, not applying it twice
+        # For short positions, profit is realized when the price goes down (entry price > exit price)
+        # P&L = (entry price - exit price) * total_units - transaction_fee
         realized_profit = (short_price - unit_price) * total_units - transaction_fee
         
-        # Check if user has enough cash
+        # Check if user has enough cash for the purchase
         if total_debit > portfolio["cash"]:
             raise InsufficientFundsError(
                 f"Not enough cash to cover {cover_quantity} lots of {symbol}. "
                 f"Required: ₹{total_debit:,.2f}, Available: ₹{portfolio['cash']:,.2f}"
             )
         
-        # Update portfolio
-        Portfolio.update_cash(order.user_id, -total_debit)
+        # When closing a short position, the cash flow is:
+        # 1. Margin is released.
+        # 2. The profit or loss from the trade is realized.
+        # The net effect on cash is the sum of these two.
+        # The cost of buying back is already factored into the P&L calculation.
+        margin_released = SELL_MARGIN_PER_LOT * cover_quantity
         
-        # Return margin if fully covering the position
-        if cover_quantity == short_quantity:
-            # Release the full margin amount
-            margin_released = SELL_MARGIN_PER_LOT * short_quantity
-            Portfolio.update_cash(order.user_id, margin_released)
-        else:
-            # Release margin proportionally
-            margin_released = SELL_MARGIN_PER_LOT * cover_quantity
-            Portfolio.update_cash(order.user_id, margin_released)
+        # The net change in cash is the margin released plus the realized profit.
+        # If there's a loss, realized_profit will be negative.
+        net_cash_effect = margin_released + realized_profit
+        
+        Portfolio.update_cash(order.user_id, net_cash_effect)
         
         # Update the short position
         Portfolio.update_short_positions(
             order.user_id, 
             symbol, 
-            -cover_quantity,  # Reduce short position
-            short_price  # Keep the same entry price
+            -cover_quantity,
+            short_price
         )
         
         # Record the trade
@@ -306,9 +305,9 @@ class TradingSystem:
             "unit_price": unit_price,
             "total_cost": total_cost,
             "transaction_fee": transaction_fee,
-            "total_debit": total_debit,
             "margin_released": margin_released,
             "realized_profit": realized_profit,
+            "net_cash_effect": net_cash_effect,
             "trade_id": str(trade_record["_id"])
         }
 
@@ -500,3 +499,14 @@ class TradingSystem:
         """Get the trade history for a user."""
         trades = db.get_user_trades(user_id, limit)
         return trades
+    #         "total_units": total_units,
+    #         "unit_price": unit_price,
+    #         "margin_reserved": required_margin,
+    #         "trade_id": str(trade_record["_id"])
+    #     }
+
+    # @staticmethod
+    # def get_trade_history(user_id, limit=50):
+    #     """Get the trade history for a user."""
+    #     trades = db.get_user_trades(user_id, limit)
+    #     return trades
