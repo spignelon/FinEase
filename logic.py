@@ -41,11 +41,11 @@ class Order:
 # Helper function to determine lot size based on symbol
 def get_lot_size(symbol):
     """Determine the lot size for a given symbol."""
-    if symbol.startswith("NIFTY "):
+    if symbol.startswith("NIFTY"):
         return LOT_SIZES["NIFTY"]
-    elif symbol.startswith("BANKNIFTY "):
+    elif symbol.startswith("BANKNIFTY"):
         return LOT_SIZES["BANKNIFTY"]
-    elif symbol.startswith("FINNIFTY "):
+    elif symbol.startswith("FINNIFTY"):
         return LOT_SIZES["FINNIFTY"]
     return LOT_SIZES["default"]
 
@@ -82,88 +82,53 @@ class OptionChain:
     """Handles option chain data retrieval and formatting."""
     
     @staticmethod
-    def format_symbol(underlying, expiry_date, strike_price, option_type):
-        """Format the symbol in the standard way: NIFTY 19JUN25 22800 CE"""
-        # Convert expiry_date from "19-06-2025" to "19JUN25"
-        date_parts = expiry_date.split("-")
-        if len(date_parts) == 3:
-            day, month, year = date_parts
-            # Convert month number to abbreviated month name
-            month_names = {
-                "01": "JAN", "02": "FEB", "03": "MAR", "04": "APR", "05": "MAY", "06": "JUN",
-                "07": "JUL", "08": "AUG", "09": "SEP", "10": "OCT", "11": "NOV", "12": "DEC"
-            }
-            month_name = month_names.get(month, month)
-            formatted_expiry = f"{day}{month_name}{year[-2:]}"
-            return f"{underlying} {formatted_expiry} {strike_price} {option_type}"
-        return f"{underlying} {expiry_date} {strike_price} {option_type}"
+    def parse_symbol(symbol):
+        """
+        Parse an option symbol to extract its components.
+        
+        Args:
+            symbol (str): The symbol to parse (e.g., NIFTY26JUN2523050PE)
+            
+        Returns:
+            dict: A dictionary with the parsed components
+        """
+        return db.parse_option_symbol(symbol)
     
     @staticmethod
     def search_options(search_query):
         """Search for options based on query string."""
-        # Get the latest option chain
-        latest_options = db.get_latest_option_chain()
+        # Get options data from master collection with the search query
+        all_options = db.get_options_from_master()
         
-        if not latest_options:
+        if not all_options:
             return []
         
         search_query = search_query.upper()
         results = []
         
-        for option in latest_options:
-            formatted_symbol = OptionChain.format_symbol(
-                option["underlying"],
-                option["expiryDate"],
-                option["strikePrice"],
-                option["optionType"]
-            )
+        for option in all_options:
+            symbol = option.get("symbol", "")
             
-            if search_query in formatted_symbol:
-                option["formattedSymbol"] = formatted_symbol
+            if search_query in symbol:
+                # Add LTP data
+                token = option.get("token")
+                if token:
+                    ltp = db.get_latest_ltp(token)
+                    option["lastPrice"] = ltp
+                
                 results.append(option)
         
         return results[:20]  # Limit results to prevent overload
     
     @staticmethod
     def get_option_by_symbol(symbol):
-        """Get option data by formatted symbol."""
-        # Parse the symbol: NIFTY 19JUN25 22800 CE
-        parts = symbol.split()
-        if len(parts) != 4:
-            raise InvalidSymbolError(f"Invalid symbol format: {symbol}")
+        """Get option data by symbol."""
+        option = db.get_option_with_ltp(symbol)
         
-        underlying, expiry, strike, option_type = parts
-        
-        # Convert expiry from "19JUN25" back to "19-06-2025"
-        day = expiry[:2]
-        month_str = expiry[2:5]
-        year_short = expiry[5:]
-        
-        month_dict = {
-            "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04", "MAY": "05", "JUN": "06",
-            "JUL": "07", "AUG": "08", "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12"
-        }
-        month = month_dict.get(month_str.upper(), "01")
-        
-        formatted_expiry = f"{day}-{month}-20{year_short}"
-        
-        # Query the database
-        query = {
-            "underlying": underlying,
-            "expiryDate": formatted_expiry,
-            "strikePrice": float(strike),
-            "optionType": option_type
-        }
-        
-        latest_option = db.option_chain_collection.find_one(
-            query,
-            sort=[("timestamp", -1)]
-        )
-        
-        if not latest_option:
+        if not option:
             raise InvalidSymbolError(f"Option not found: {symbol}")
         
-        return latest_option
+        return option
 
 # --- Core Trading Logic ---
 class TradingSystem:
@@ -193,6 +158,16 @@ class TradingSystem:
         
         # Get lot size for the symbol
         lot_size = get_lot_size(order.symbol)
+        
+        # Get current price from LTP if available and price is 0
+        if order.price == 0:
+            try:
+                option_data = db.get_option_with_ltp(order.symbol)
+                if option_data and "lastPrice" in option_data and option_data["lastPrice"] is not None:
+                    order.price = option_data["lastPrice"]
+            except Exception as e:
+                print(f"Error getting LTP for {order.symbol}: {e}")
+                # Continue with the provided price
         
         # Calculate costs with lot size
         units_per_lot = lot_size
@@ -250,6 +225,16 @@ class TradingSystem:
 
         # Get lot size for the symbol
         lot_size = get_lot_size(order.symbol)
+        
+        # Get current price from LTP if available and price is 0
+        if order.price == 0:
+            try:
+                option_data = db.get_option_with_ltp(order.symbol)
+                if option_data and "lastPrice" in option_data and option_data["lastPrice"] is not None:
+                    order.price = option_data["lastPrice"]
+            except Exception as e:
+                print(f"Error getting LTP for {order.symbol}: {e}")
+                # Continue with the provided price
         
         # Calculate proceeds with lot size
         units_per_lot = lot_size

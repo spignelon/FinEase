@@ -1,6 +1,5 @@
 import os
 import json
-import requests
 import threading
 import time
 from flask import Flask, request, jsonify, abort
@@ -31,71 +30,6 @@ CORS(app, resources={
 
 # Global variables
 running = True
-session = requests.Session()  # Create a session to reuse connections
-
-# Add required headers to mimic browser requests
-headers = {
-    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-    'accept': '*/*',
-    'accept-language': 'en-US,en;q=0.8',
-    'referer': 'https://www.nseindia.com/option-chain',
-    'sec-ch-ua': '"Brave";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Linux"',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
-    'sec-gpc': '1',
-    'priority': 'u=1, i'
-}
-
-# Add cookies required for NSE API access
-cookies = {
-    'nsit': 'iI7Ov2YXr9cyM6LVAqyDD9JV',
-    'nseappid': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcGkubnNlIiwiYXVkIjoiYXBpLm5zZSIsImlhdCI6MTc1MDE0NTA3NywiZXhwIjoxNzUwMTUyMjc3fQ.Q59zBon4yo0SXKX5-i9vIH-sMLU4t4Q564STtiI-asY',
-    'AKA_A2': 'A',
-}
-
-# Update the session with the cookies
-for cookie_name, cookie_value in cookies.items():
-    session.cookies.set(cookie_name, cookie_value)
-
-# Helper function to fetch data from the NSE API
-def fetch_data(url):
-    try:
-        response = session.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error fetching data: Status code {response.status_code}")
-            return None
-    except Exception as e:
-        print(f"Exception while fetching data: {str(e)}")
-        return None
-
-# Function to fetch option chain data periodically
-def fetch_option_chain_data():
-    global running
-    while running:
-        try:
-            option_chain_url = "https://www.nseindia.com/api/option-chain-v3?type=Indices&symbol=NIFTY&expiry=19-Jun-2025"
-            data = fetch_data(option_chain_url)
-            if data:
-                db.save_option_chain_data(data)
-                print(f"Option chain data updated at {datetime.now()}")
-            
-            # Fetch market status data
-            market_status_url = "https://www.nseindia.com/api/marketStatus"
-            market_data = fetch_data(market_status_url)
-            if market_data:
-                db.save_market_data(market_data)
-                print(f"Market data updated at {datetime.now()}")
-                
-        except Exception as e:
-            print(f"Error in fetch_option_chain_data: {str(e)}")
-        
-        # Sleep for 2 seconds
-        time.sleep(2)
 
 # Authentication decorator
 def token_required(f):
@@ -257,28 +191,40 @@ def get_portfolio(user_id):
             if state.get('index') == 'NIFTY 50':
                 nifty_price = state.get('last', 0)
     
-    # Calculate total value (simplified - in a real app, you'd use actual prices)
+    # Calculate total value using LTP from MongoDB
     holdings_list = []
     total_holdings_value = 0
     
     for symbol, quantity in portfolio['holdings'].items():
         try:
-            # Try to get current price for the holding
-            option_data = logic.OptionChain.get_option_by_symbol(symbol)
-            price = option_data.get('lastPrice', 0)
-            lot_size = logic.get_lot_size(symbol)
-            total_units = quantity * lot_size
-            market_value = total_units * price
-            total_holdings_value += market_value
+            # Get option data with LTP from MongoDB
+            option_data = db.get_option_with_ltp(symbol)
             
-            holdings_list.append({
-                'symbol': symbol,
-                'quantity': quantity,
-                'lot_size': lot_size,
-                'total_units': total_units,
-                'price': price,
-                'market_value': market_value
-            })
+            if option_data and "lastPrice" in option_data and option_data["lastPrice"] is not None:
+                price = option_data["lastPrice"]
+                lot_size = logic.get_lot_size(symbol)
+                total_units = quantity * lot_size
+                market_value = total_units * price
+                total_holdings_value += market_value
+                
+                holdings_list.append({
+                    'symbol': symbol,
+                    'quantity': quantity,
+                    'lot_size': lot_size,
+                    'total_units': total_units,
+                    'price': price,
+                    'market_value': market_value
+                })
+            else:
+                # If no LTP available
+                holdings_list.append({
+                    'symbol': symbol,
+                    'quantity': quantity,
+                    'lot_size': logic.get_lot_size(symbol),
+                    'price': 'Unknown',
+                    'market_value': 0,
+                    'error': 'No LTP data available'
+                })
         except Exception as e:
             # If there's an error getting the price, use a placeholder
             holdings_list.append({
@@ -303,20 +249,26 @@ def get_option_chain():
     symbol = request.args.get('symbol', 'NIFTY')
     expiry = request.args.get('expiry')
     
+    # Get option chain data from MongoDB with LTP
     options_data = db.get_latest_option_chain(symbol, expiry)
     
     # Format the data for the frontend
     formatted_options = []
     for option in options_data:
-        formatted_symbol = logic.OptionChain.format_symbol(
-            option["underlying"],
-            option["expiryDate"],
-            option["strikePrice"],
-            option["optionType"]
-        )
+        formatted_symbol = option.get("symbol", "")
         
-        option["formattedSymbol"] = formatted_symbol
-        formatted_options.append(option)
+        option_dict = {
+            "formattedSymbol": formatted_symbol,
+            "symbol": formatted_symbol,
+            "underlying": option.get("underlying", symbol),
+            "expiryDate": option.get("expiryDate", ""),
+            "strikePrice": option.get("strikePrice", 0),
+            "optionType": option.get("optionType", ""),
+            "lastPrice": option.get("lastPrice", None),
+            "token": option.get("token", "")
+        }
+        
+        formatted_options.append(option_dict)
     
     return jsonify({
         'options': formatted_options,
@@ -334,7 +286,36 @@ def search_options():
             'message': 'Query too short'
         }), 400
     
-    results = logic.OptionChain.search_options(query)
+    # Get master data first
+    all_options = db.get_options_from_master()
+    
+    # Filter based on query
+    query = query.upper()
+    results = []
+    
+    for option in all_options:
+        if query in option.get("symbol", ""):
+            # Add LTP data
+            token = option.get("token")
+            if token:
+                ltp = db.get_latest_ltp(token)
+                option["lastPrice"] = ltp
+                
+            # Create a clean response object
+            results.append({
+                "formattedSymbol": option.get("symbol", ""),
+                "symbol": option.get("symbol", ""),
+                "underlying": option.get("underlying", "NIFTY"),
+                "expiryDate": option.get("expiryDate", ""),
+                "strikePrice": option.get("strikePrice", 0),
+                "optionType": option.get("optionType", ""),
+                "lastPrice": option.get("lastPrice"),
+                "token": option.get("token", "")
+            })
+            
+            # Limit to 20 results
+            if len(results) >= 20:
+                break
     
     return jsonify({
         'options': results,
@@ -421,16 +402,11 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'message': 'Internal server error'}), 500
 
-# Replace the deprecated before_first_request with proper initialization
+# Replace NSE data fetching with master data update at startup
 def start_background_tasks():
-    # First, update master data if needed
+    # Update master data if needed
     update_master_data()
-    
-    # Then start the regular data fetching thread
-    data_thread = threading.Thread(target=fetch_option_chain_data)
-    data_thread.daemon = True
-    data_thread.start()
-    return data_thread
+    return None
 
 # Add a new API endpoint to manually trigger master data update (useful for testing)
 @app.route('/api/admin/update_master_data', methods=['POST'])
@@ -445,12 +421,12 @@ def admin_update_master_data(user_id):
 
 if __name__ == '__main__':
     try:
-        # Create a thread for fetching data
-        data_thread = start_background_tasks()
+        # Start background tasks (just master data update now)
+        start_background_tasks()
         
         # Run the Flask app
         app.run(debug=True, host='0.0.0.0', port=5001)
     finally:
-        # Set the flag to stop the thread
+        # Signal to stop any background tasks
         running = False
         print("Shutting down background tasks...")
