@@ -23,7 +23,7 @@ correlation_id = "dft_test1"
 action = 1
 mode = 1
 
-token_list = [{"exchangeType": 5, "tokens": ["242738"]} , {"exchangeType": 1, "tokens": ["26009"]}]
+token_list = [{"exchangeType": 2, "tokens": ["62399"]}]
 
 sws = SmartWebSocketV2(AUTH_TOKEN, apikey, username, FEED_TOKEN)
 
@@ -57,12 +57,12 @@ threading.Thread(target = sws.connect).start()
 print('Control Released')
 time.sleep(10)
  
-token_list2 = [{"exchangeType": 5, "tokens": ["244999","246083"]}]
-sws.subscribe(correlation_id, mode, token_list2)
-print(f'\n ------ subscribe {token_list2} ------- \n')
-time.sleep(10)
-sws.unsubscribe(correlation_id, mode, token_list2)
-print(f'\n ---------usubscribe {token_list2}------ \n')
+# token_list2 = [{"exchangeType": 5, "tokens": ["244999","246083"]}]
+# sws.subscribe(correlation_id, mode, token_list2)
+# print(f'\n ------ subscribe {token_list2} ------- \n')
+# time.sleep(10)
+# sws.unsubscribe(correlation_id, mode, token_list2)
+# print(f'\n ---------usubscribe {token_list2}------ \n')
 sws.unsubscribe(correlation_id, mode, token_list)
 
 
