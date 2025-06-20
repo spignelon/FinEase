@@ -475,5 +475,23 @@ def default_market_data():
         ]
     }
 
+def save_market_data(data):
+    """Save market status data."""
+    if not data or client is None:
+        return False
+    
+    try:
+        # Ensure timestamp is set
+        if 'timestamp' not in data:
+            data['timestamp'] = datetime.now()
+            
+        # Insert the market data
+        market_data_collection.insert_one(data)
+        print(f"Market data saved at {datetime.now()}")
+        return True
+    except Exception as e:
+        print(f"Error saving market data: {e}")
+        return False
+
 # Initialize database with indexes
 setup_indexes()
