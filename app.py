@@ -505,6 +505,37 @@ def get_market_data():
     
     return jsonify(market_data), 200
 
+# New endpoint for fetching live NIFTY price
+@app.route('/api/nifty_price', methods=['GET'])
+def get_nifty_price():
+    # NIFTY 50 token is 26000
+    nifty_token = "26000"
+    
+    try:
+        # Get the latest LTP for NIFTY
+        nifty_price = db.get_latest_ltp(nifty_token)
+        
+        if nifty_price is not None:
+            return jsonify({
+                'status': 'success',
+                'symbol': 'NIFTY 50',
+                'price': nifty_price,
+                'timestamp': datetime.now().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'NIFTY price data not available',
+                'timestamp': datetime.now().isoformat()
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error fetching NIFTY price: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):

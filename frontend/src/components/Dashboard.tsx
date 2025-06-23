@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Portfolio, MarketData } from '../types';
+import { Portfolio } from '../types';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw, X } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [niftyData, setNiftyData] = useState<{ 
+    price: number; 
+    status: string; 
+    symbol: string; 
+    timestamp: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exitingPosition, setExitingPosition] = useState<string | null>(null);
@@ -14,12 +19,12 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [portfolioData, marketDataResponse] = await Promise.all([
+      const [portfolioData, niftyPriceData] = await Promise.all([
         apiService.getPortfolio(),
-        apiService.getMarketData(),
+        apiService.getNiftyPrice(),
       ]);
       setPortfolio(portfolioData);
-      setMarketData(marketDataResponse);
+      setNiftyData(niftyPriceData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
     } finally {
@@ -99,7 +104,6 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const niftyData = marketData?.marketState.find(item => item.index === 'NIFTY 50');
   const totalPnL = portfolio ? portfolio.total_portfolio_value - 1000000 : 0; // Assuming initial cash was 10L
   const totalPnLPercent = totalPnL / 1000000 * 100;
 
@@ -116,23 +120,15 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* Market Overview */}
+      {/* Market Overview - Simplified to only show the price without change data */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">NIFTY 50</h3>
               <p className="text-3xl font-bold text-gray-900 mt-2">
-                {niftyData ? formatNumber(niftyData.last) : 'N/A'}
+                {niftyData ? formatNumber(niftyData.price) : 'N/A'}
               </p>
-              {niftyData?.change && (
-                <div className={`flex items-center mt-2 ${niftyData.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {niftyData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                  <span className="font-medium">
-                    {niftyData.change >= 0 ? '+' : ''}{formatNumber(niftyData.change)} ({niftyData.pChange?.toFixed(2)}%)
-                  </span>
-                </div>
-              )}
             </div>
             <div className="p-3 bg-blue-100 rounded-full">
               <BarChart3 className="w-8 h-8 text-blue-600" />

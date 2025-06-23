@@ -1,4 +1,4 @@
-import { User, Portfolio, Option, Trade, MarketData, TradeRequest, TradeResponse } from '../types';
+import { User, Portfolio, Option, Trade, TradeRequest, TradeResponse } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -109,11 +109,16 @@ class ApiService {
     return response.json();
   }
 
-  async getMarketData(): Promise<MarketData> {
-    const response = await fetch(`${API_BASE_URL}/api/market_data`);
+  async getNiftyPrice(): Promise<{ 
+    price: number; 
+    status: string; 
+    symbol: string; 
+    timestamp: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/nifty_price`);
     
     if (!response.ok) {
-      throw new Error('Failed to fetch market data');
+      throw new Error('Failed to fetch Nifty price');
     }
 
     return response.json();
