@@ -15,6 +15,7 @@ LTP_COLLECTION = "ltp"
 
 # --- Global Variables ---
 ltp_collection = None
+sws = None
 
 def get_tokens_from_mongodb():
     """
@@ -24,9 +25,10 @@ def get_tokens_from_mongodb():
         client = MongoClient(MONGO_URI)
         db = client[DB_NAME]
         master_collection = db[MASTER_COLLECTION]
-        tokens = [doc['token'] for doc in master_collection.find({}, {'token': 1, '_id': 0})]
+        # Fetches tokens where exch_seg is 'NFO' as their exchangeType is 2
+        tokens = [doc['token'] for doc in master_collection.find({'exch_seg': 'NFO'}, {'token': 1, '_id': 0})]
         client.close()
-        print(f"Successfully fetched {len(tokens)} tokens from the 'master' collection.")
+        print(f"Successfully fetched {len(tokens)} NFO tokens from the 'master' collection.")
         return tokens
     except ConnectionFailure as e:
         print(f"Error connecting to MongoDB: {e}")
@@ -80,15 +82,11 @@ def on_data(wsapp, message):
         print(f"Ticks: {message}")
 
         # Keep only the latest 100 documents for the token
-        # This approach is efficient as it finds and deletes old documents in one go.
-        # It triggers only when a new document is inserted for a token that already has 100 documents.
-        
-        # Get the count of documents for the current token
         count = ltp_collection.count_documents({'token': token})
 
         if count > 100:
-            # Find the oldest document's id to remove
             num_to_delete = count - 100
+            # Find the oldest documents' ids to remove
             oldest_docs_cursor = ltp_collection.find({'token': token}).sort('created_at', ASCENDING).limit(num_to_delete)
             ids_to_delete = [doc['_id'] for doc in oldest_docs_cursor]
             
@@ -101,7 +99,7 @@ def on_data(wsapp, message):
 
 def on_open(wsapp):
     print("on open")
-    subscribe_tokens(wsapp)
+    subscribe_tokens()
 
 def on_error(wsapp, error):
     print(error)
@@ -109,25 +107,30 @@ def on_error(wsapp, error):
 def on_close(wsapp):
     print("Close")
 
-def subscribe_tokens(wsapp):
+def subscribe_tokens():
     """
-    Subscribes to the tokens fetched from MongoDB.
+    Subscribes to the tokens fetched from MongoDB and the additional hardcoded token.
     """
     global sws
-    tokens_to_subscribe = get_tokens_from_mongodb()
-    if not tokens_to_subscribe:
-        print("No tokens found to subscribe. Exiting.")
-        sws.close_connection()
-        return
-
-    correlation_id = "dft_test1"
+    correlation_id = "dft_stream"
     action = 1
     mode = 1
-    # Assuming exchangeType is always 2 as per the user's request
-    token_list = [{"exchangeType": 2, "tokens": tokens_to_subscribe}]
+    
+    # --- Subscription for tokens from MongoDB ---
+    tokens_to_subscribe_mongo = get_tokens_from_mongodb()
+    if tokens_to_subscribe_mongo:
+        # Assuming exchangeType is always 2 for tokens from MongoDB as per the initial request
+        token_list_1 = [{"exchangeType": 2, "tokens": tokens_to_subscribe_mongo}]
+        sws.subscribe(correlation_id, mode, token_list_1)
+        print(f"Subscribed to tokens from MongoDB: {tokens_to_subscribe_mongo}")
+    else:
+        print("No NFO tokens found in MongoDB to subscribe.")
 
-    sws.subscribe(correlation_id, mode, token_list)
-    print(f"Subscribed to tokens: {tokens_to_subscribe}")
+    # --- Subscription for the hardcoded token ---
+    token_list_2 = [{"exchangeType": 1, "tokens": ["26000"]}]
+    sws.subscribe(correlation_id, mode, token_list_2)
+    print("Subscribed to hardcoded token: 26000 with exchangeType: 1")
+
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -140,12 +143,12 @@ if __name__ == "__main__":
     # Generate session
     try:
         data = obj.generateSession(username, pwd, pyotp.TOTP(token).now())
-        print(data)
+        print("Session Generated Successfully")
         AUTH_TOKEN = data['data']['jwtToken']
         refreshToken = data['data']['refreshToken']
         FEED_TOKEN = obj.getfeedToken()
         res = obj.getProfile(refreshToken)
-        print(f"Exchanges: {res['data']['exchanges']}")
+        print(f"Exchanges Available: {res['data']['exchanges']}")
     except Exception as e:
         print(f"Error during SmartAPI session generation: {e}")
         exit()
@@ -165,23 +168,26 @@ if __name__ == "__main__":
 
     # Keep the main thread alive to allow the websocket to run
     try:
-        # The script will run indefinitely to keep receiving ticks.
-        # You can add a condition to break the loop if needed.
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        # a graceful shutdown
-        print("\nKeyboard interrupt received. Closing connection...")
+        print("\nKeyboard interrupt received. Unsubscribing and closing connection...")
+        correlation_id = "dft_stream"
+        mode = 1
         
-        # Unsubscribe from all tokens before closing
-        tokens_to_unsubscribe = get_tokens_from_mongodb()
-        if tokens_to_unsubscribe:
-            correlation_id = "dft_test1"
-            mode = 1
-            token_list_to_unsubscribe = [{"exchangeType": 2, "tokens": tokens_to_unsubscribe}]
-            sws.unsubscribe(correlation_id, mode, token_list_to_unsubscribe)
-            print(f"Unsubscribed from tokens: {tokens_to_unsubscribe}")
-            time.sleep(2) # Give some time for the unsubscribe message to be sent
+        # Unsubscribe from MongoDB tokens
+        tokens_to_unsubscribe_mongo = get_tokens_from_mongodb()
+        if tokens_to_unsubscribe_mongo:
+            token_list_1_unsub = [{"exchangeType": 2, "tokens": tokens_to_unsubscribe_mongo}]
+            sws.unsubscribe(correlation_id, mode, token_list_1_unsub)
+            print(f"Unsubscribed from MongoDB tokens: {tokens_to_unsubscribe_mongo}")
+
+        # Unsubscribe from the hardcoded token
+        token_list_2_unsub = [{"exchangeType": 1, "tokens": ["26000"]}]
+        sws.unsubscribe(correlation_id, mode, token_list_2_unsub)
+        print("Unsubscribed from hardcoded token: 26000")
+
+        time.sleep(2) # Give some time for the unsubscribe messages to be sent
 
         sws.close_connection()
         print('Connection Closed')
