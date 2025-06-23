@@ -14,7 +14,6 @@ from bson.errors import InvalidId
 
 import db
 import logic
-import fetch_nifty  # Import the new fetch_nifty module
 from master import NiftyDataProcessor  # Import NiftyDataProcessor from master.py
 
 app = Flask(__name__)
@@ -485,27 +484,7 @@ def get_trades(user_id):
         'count': len(trades)
     }), 200
 
-@app.route('/api/market_data', methods=['GET'])
-def get_market_data():
-    # Try to fetch fresh market data
-    fresh_data = fetch_nifty.update_market_data()
-    
-    # If fresh fetch fails, get the latest data from database
-    market_data = fresh_data or db.get_latest_market_data()
-    
-    if not market_data:
-        return jsonify({
-            'status': 'error',
-            'message': 'No market data available'
-        }), 404
-    
-    # Convert ObjectId to string for JSON serialization
-    if '_id' in market_data:
-        market_data['_id'] = str(market_data['_id'])
-    
-    return jsonify(market_data), 200
-
-# New endpoint for fetching live NIFTY price
+# Endpoint for fetching live NIFTY price
 @app.route('/api/nifty_price', methods=['GET'])
 def get_nifty_price():
     # NIFTY 50 token is 26000
@@ -545,36 +524,13 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'message': 'Internal server error'}), 500
 
-# Replace NSE data fetching with master data update at startup
+# Update background tasks to only handle master data
 def start_background_tasks():
     # Update master data if needed
     update_master_data()
     
-    # Start a thread to periodically fetch market data
-    market_data_thread = threading.Thread(target=fetch_market_data_periodically)
-    market_data_thread.daemon = True
-    market_data_thread.start()
-    
-    return market_data_thread
-
-def fetch_market_data_periodically():
-    """Function to periodically fetch market data in a separate thread."""
-    global running
-    
-    print("Starting market data fetching thread")
-    # Fetch market data immediately at startup
-    fetch_nifty.update_market_data()
-    
-    # Then fetch at regular intervals
-    while running:
-        try:
-            time.sleep(60)  # Update every 60 seconds
-            if running:  # Check if we should still be running
-                fetch_nifty.update_market_data()
-        except Exception as e:
-            print(f"Error in market data thread: {e}")
-            # Sleep for a bit before retrying
-            time.sleep(10)
+    # No more market data thread needed
+    return None
 
 # Add a new API endpoint to manually trigger master data update (useful for testing)
 @app.route('/api/admin/update_master_data', methods=['POST'])
@@ -589,8 +545,8 @@ def admin_update_master_data(user_id):
 
 if __name__ == '__main__':
     try:
-        # Start background tasks
-        market_thread = start_background_tasks()
+        # Start background tasks but don't store the thread since there's no market thread anymore
+        start_background_tasks()
         
         # Run the Flask app
         app.run(debug=True, host='0.0.0.0', port=5001)
@@ -599,3 +555,4 @@ if __name__ == '__main__':
         running = False
         print("Shutting down background tasks...")
         time.sleep(1)  # Give threads a chance to terminate gracefully
+
