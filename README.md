@@ -2,6 +2,86 @@
 
 A paper trading application for options trading with real-time market data from NSE.
 
+## Setup Instructions
+
+### Prerequisites
+
+- Python 3.7 or higher
+- Node.js and npm
+- MongoDB (for database)
+
+### Configuration
+
+1. **MongoDB Setup**: Set up a MongoDB instance with authentication:
+   - Install MongoDB locally or use a cloud service
+   - Create a database user with admin privileges
+   - Note down the username and password
+
+2. Create a `.env` file in the root directory with your MongoDB connection:
+
+```properties
+MONGODB_URI=mongodb://your_username:your_password@localhost:27017/
+```
+
+Replace `your_username` and `your_password` with your MongoDB credentials.
+
+3. Create a `config.py` file in the root directory with your Angel One SmartAPI credentials:
+
+```python
+apikey =    '*****'
+username =  '*****'
+pwd =       '*****'
+token =     '*****'
+```
+
+Replace the `*****` placeholders with your actual Angel One SmartAPI credentials.
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/spignelon/FinEase.git
+cd FinEase
+```
+
+2. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Install frontend dependencies:
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+### Running the Application
+
+To run the complete application, you need to start three components in the following order:
+
+#### 1. Start the Market Data Streamer
+```bash
+python streamer.py
+```
+
+This service connects to Angel One's SmartAPI and streams live market data to MongoDB.
+
+#### 2. Start the Backend API Server
+```bash
+python app.py
+```
+
+#### 3. Start the Frontend Development Server
+```bash
+cd frontend
+npm run dev
+```
+
+The application will be available at:
+- Frontend: `http://localhost:5173` (or the port shown in terminal)
+- Backend API: `http://localhost:5000` (or the port configured in your app)
+
 ## API Documentation
 
 ### Authentication
