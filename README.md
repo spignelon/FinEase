@@ -2,6 +2,36 @@
 
 A paper trading application for options trading with real-time market data from NSE.
 
+## Screenshots
+
+### Authentication
+
+| Login | Register |
+| :---: | :---: |
+| ![Login](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
+
+### Dashboard
+
+Live NIFTY 50 level, portfolio P&L, available cash, holdings value and total value at a glance.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Portfolio
+
+![Portfolio](docs/screenshots/portfolio.png)
+
+### Options Trading
+
+Search the NIFTY option chain and place buy/sell orders in the order panel.
+
+![Options Trading](docs/screenshots/trading.png)
+
+### Trade History
+
+![Trade History](docs/screenshots/history.png)
+
+> LTP values in the Trading screenshot read ₹0.00 because the market data streamer (`streamer.py`) wasn't running when it was captured.
+
 ## Setup Instructions
 
 ### Prerequisites
