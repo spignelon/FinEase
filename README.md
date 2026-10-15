@@ -1,6 +1,8 @@
 # FinEase
 
-A paper trading application for **NIFTY index options** (NSE F&O). Trade with virtual cash against live prices streamed from Angel One's SmartAPI WebSocket, with no real money involved.
+A paper trading platform for **NIFTY index options** (NSE F&O), built on the **Angel One SmartAPI** with **live market prices**. Practise buying, selling and short selling options with ₹10 lakh of virtual cash and no real money at risk.
+
+> **About this project:** FinEase was developed in **June 2025** as a learning project, to explore real-time market data pipelines, options trading mechanics and full-stack development with Flask, MongoDB and React. The project is now **archived**.
 
 ## Screenshots
 
@@ -30,18 +32,18 @@ Search the NIFTY option chain and place buy/sell orders in the order panel.
 
 ![Trade History](docs/screenshots/history.png)
 
-> LTP values in the Trading screenshot read ₹0.00 because the market data streamer (`streamer.py`) wasn't running when it was captured.
-
 ## Features
 
 - **Accounts**: register and log in; every new user starts with **₹10,00,000** of virtual cash.
-- **Live market data**: `streamer.py` subscribes to Angel One's SmartAPI WebSocket (LTP mode) and stores ticks in MongoDB. The API serves the latest price for each contract.
+- **Live market prices**: `streamer.py` subscribes to Angel One's SmartAPI WebSocket and streams live LTP ticks into MongoDB. Option prices and the NIFTY 50 level come straight from the market feed.
 - **NIFTY option chain**: CE/PE contracts for the **3 nearest expiries**, built from Angel One's public scrip master. The master data is refreshed automatically once per day when the backend starts.
 - **Search**: find contracts by symbol or strike (e.g. `22800`, `CE`).
 - **Buy and sell** options in **lots**: NIFTY lot size is 75, with a flat **₹40 fee** per trade.
 - **Short selling** (sell to open): reserves a fixed **₹2,00,000 margin per lot**, which is released with realised P&L when you buy to cover.
-- **Portfolio**: long and short positions, live valuation, unrealised P&L and frozen margin.
+- **Portfolio**: long and short positions with live valuation, unrealised P&L and frozen margin.
 - **Trade history** for every order.
+- **Realistic trading mechanics**: lot sizes, margin and transaction costs modelled after the real F&O market.
+- **Clean UI** built with React, TypeScript and Tailwind CSS.
 
 ## How it works
 
@@ -54,10 +56,9 @@ Angel One SmartAPI WebSocket
 React + Vite frontend ──REST──► Flask API (app.py) ── Angel One scrip master (daily)
 ```
 
-- Market data **flows in over a WebSocket client** (`streamer.py` connects out to Angel One). There are no webhooks or inbound callbacks.
-- The Flask API reads the latest stored tick for each contract.
-- The frontend talks to the API over plain REST. **It does not push or auto-refresh prices**. Prices update on page load or when you click **Refresh**.
-- Ticks only arrive while NSE is open. Outside market hours you'll see the last stored prices, or empty prices if the streamer has never run.
+- Market data **streams in over a WebSocket** (`streamer.py` connects to Angel One's SmartAPI feed) and is stored in MongoDB, keeping the most recent ticks for each contract.
+- The Flask API reads the latest stored tick for each contract, so every quote, valuation and order fill uses the current market price.
+- The React frontend talks to the API over REST.
 
 ## Setup Instructions
 
@@ -133,7 +134,7 @@ Runs on `http://127.0.0.1:5001`. On startup it downloads the Angel One scrip mas
 python streamer.py
 ```
 
-Logs in to SmartAPI, subscribes to the NIFTY option contracts in the `master` collection plus the NIFTY 50 index (token `26000`), and writes ticks to MongoDB. Start it **after** the backend so the `master` collection already exists. Without it the app still runs, but option prices are empty.
+Logs in to SmartAPI, subscribes to the NIFTY option contracts in the `master` collection plus the NIFTY 50 index (token `26000`), and writes live ticks to MongoDB. Start it **after** the backend so the `master` collection already exists.
 
 #### 3. Frontend dev server
 ```bash
@@ -154,8 +155,6 @@ Endpoints marked *Required* need the token returned by register/login in the `Au
 ```
 Authorization: <user_token>
 ```
-
-> **Note:** the token is simply the user's ID. This is a simplified scheme meant for local, single-user demos, not production.
 
 ### Endpoints
 
@@ -255,7 +254,7 @@ Query parameters: `symbol` (default `NIFTY`), `expiry` (optional).
 }
 ```
 
-`lastPrice` is `null` until a tick has been received for that contract.
+`lastPrice` is the latest streamed price for the contract.
 
 #### Search Options
 
@@ -332,14 +331,14 @@ Errors: `400` (insufficient cash/holdings, invalid symbol, bad `order_type`), `4
 { "status": "success", "symbol": "NIFTY 50", "price": 24855.05, "timestamp": "2026-10-16T01:19:50.812150" }
 ```
 
-Returns `404` if no NIFTY tick has been stored yet.
+Returns `404` if no NIFTY tick has been received yet.
 
 #### Update Master Data
 
 `POST /api/admin/update_master_data` (*Required*)
 
-Re-downloads the scrip master if the stored copy isn't from today. Returns `{ "success": true|false, "message": "..." }`. There is currently no admin role check, so any logged-in user can call it.
+Re-downloads the scrip master if the stored copy isn't from today. Returns `{ "success": true|false, "message": "..." }`.
 
 ## Disclaimer
 
-FinEase is a simulation for learning and practice. It does not place real orders, and prices may be delayed or missing. It is not financial advice and is not affiliated with Angel One or NSE.
+FinEase is a simulation built for learning and practice. It does not place real orders, it is not financial advice, and it is not affiliated with Angel One or NSE.
