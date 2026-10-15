@@ -342,3 +342,7 @@ Re-downloads the scrip master if the stored copy isn't from today. Returns `{ "s
 ## Disclaimer
 
 FinEase is a simulation built for learning and practice. It does not place real orders, it is not financial advice, and it is not affiliated with Angel One or NSE.
+
+## License
+
+Released under the [MIT License](LICENSE).
