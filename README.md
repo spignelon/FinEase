@@ -2,7 +2,7 @@
 
 A paper trading platform for **NIFTY index options** (NSE F&O), built on the **Angel One SmartAPI** with **live market prices**. Practise buying, selling and short selling options with ₹10 lakh of virtual cash and no real money at risk.
 
-> **About this project:** FinEase was developed in **June 2025** as a learning project, to explore real-time market data pipelines, options trading mechanics and full-stack development with Flask, MongoDB and React. The project is now **archived**.
+> **About this project:** FinEase was developed in **June 2025** as a learning project, to explore real-time market data pipelines, options trading mechanics and full-stack development with Flask, MongoDB and React. This project is **no longer maintained**.
 
 ## Screenshots
 
